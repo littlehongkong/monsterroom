@@ -2,12 +2,29 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/router";
 
+// ⭐ 등급 색상
+const badgeColor = (grade: string | null) => {
+  if (!grade) return "#9E9E9E";
+  if (grade.startsWith("Lv.")) return "#9E9E9E";
+  if (grade === "S") return "#43A047";
+  if (grade === "SS") return "#1E88E5";
+  if (grade === "LEGEND") return "#FB8C00";
+  if (grade === "COSMIC") return "#8E24AA";
+  if (grade === "INFINITY") return "#D32F2F";
+  return "#9E9E9E";
+};
+
 export default function MonsterDetail() {
   const router = useRouter();
   const { id } = router.query;
 
   const [monster, setMonster] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // 🔥 입력 상태
+  const [name, setName] = useState("");
+  const [levelInput, setLevelInput] = useState("");
+  const [feature, setFeature] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -26,23 +43,53 @@ export default function MonsterDetail() {
       }
 
       setMonster(data);
+
+      // 폼 초기값 채우기
+      setName(data.monster_name ?? "");
+      setLevelInput(data.level_input_value ?? "");
+      setFeature(data.description ?? "");
+
       setLoading(false);
     }
 
     fetchMonster();
   }, [id]);
 
+  // 🔥 저장 동작
+  async function saveMonster() {
+    const res = await fetch(`/api/monsters/${id}/update-info`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        monster_name: name,
+        level_input_value: levelInput,
+        description: feature,
+      }),
+    });
+
+    const result = await res.json();
+
+    if (!res.ok) {
+      alert(result.error || "저장 실패");
+      return;
+    }
+
+    alert("저장 완료!");
+    router.reload();
+  }
+
   if (loading) return <div style={{ padding: 20 }}>불러오는 중...</div>;
   if (!monster) return <div style={{ padding: 20 }}>몬스터 정보를 찾을 수 없습니다.</div>;
 
   return (
-    <div style={{
-      maxWidth: 800,
-      margin: "0 auto",
-      padding: 20,
-      fontFamily: "Pretendard, sans-serif"
-    }}>
-      
+    <div
+      style={{
+        maxWidth: 800,
+        margin: "0 auto",
+        padding: 20,
+        fontFamily: "Pretendard, sans-serif"
+      }}
+    >
       {/* 헤더 */}
       <div
         style={{
@@ -87,120 +134,116 @@ export default function MonsterDetail() {
               style={{ borderRadius: 12, marginTop: 10 }}
             />
           ) : (
-            <>
-              <p>AI 이미지 생성 전입니다.</p>
-              <button
-                onClick={async () => {
-                  const res = await fetch(`/api/monsters/${id}/generate-image`, { method: "POST" });
-                  await res.json();
-                  window.location.reload();
-                }}
-                style={{
-                  padding: "10px 14px",
-                  background: "#0277BD",
-                  color: "white",
-                  borderRadius: 8,
-                  cursor: "pointer",
-                }}
-              >
-                AI 이미지 생성하기
-              </button>
-            </>
+            <p>AI 이미지 없음</p>
           )}
         </div>
 
-        {/* 이름/설명 */}
+        {/* 📛 이름 입력 */}
         <div style={{
           background: "#F3E5F5",
           padding: 20,
           borderRadius: 16,
         }}>
           <h2>📛 몬스터 이름</h2>
-          <p>{monster.monster_name ?? "AI 생성 전"}</p>
-
-          <h2>📝 설명</h2>
-          <p>{monster.description ?? "AI 생성 전"}</p>
-
-          {/* 이름/설명 버튼 조건부 렌더링 */}
-          {!monster.monster_name && !monster.description ? (
-            <button
-              onClick={async () => {
-                const res = await fetch(`/api/monsters/${id}/generate-info`, { method: "POST" });
-                await res.json();
-                window.location.reload();
-              }}
-              style={{
-                marginTop: 20,
-                padding: "10px 16px",
-                background: "#6A1B9A",
-                color: "white",
-                borderRadius: 8,
-                cursor: "pointer",
-              }}
-            >
-              이름/설명 생성하기
-            </button>
-          ) : (
-            <p style={{ color: "#666", marginTop: 10 }}>✓ 이름과 설명이 생성되었습니다.</p>
-          )}
+          <input
+            type="text"
+            placeholder="예: 얼음킹"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            style={{
+              width: "100%",
+              padding: 12,
+              borderRadius: 8,
+              border: "1px solid #ccc",
+              fontSize: 16,
+            }}
+          />
         </div>
 
-        {/* 스토리 카드 */}
+        {/* ⭐ 레벨 입력 */}
         <div
           style={{
-            background: "#FFF8E1",
+            background: "#FFF3E0",
             padding: 20,
             borderRadius: 16,
-            marginTop: 30,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.08)"
           }}
         >
-          <h2>📖 몬스터 스토리</h2>
+          <h2>⭐ 몬스터 레벨</h2>
 
-          {monster.story ? (
-            <>
-              <p style={{ whiteSpace: "pre-line", lineHeight: 1.7 }}>
-                {monster.story}
-              </p>
+          <input
+            type="text"
+            placeholder="예: 99999, 무한대, 123"
+            value={levelInput}
+            onChange={(e) => setLevelInput(e.target.value)}
+            style={{
+              width: "100%",
+              padding: 12,
+              borderRadius: 8,
+              border: "1px solid #ccc",
+              fontSize: 16,
+            }}
+          />
 
-              {/* 스토리 보기 버튼 */}
-              <a
-                href={`/monster/${monster.id}/story`}
+          {/* 정규화된 등급 표시 */}
+          {monster.level_grade && (
+            <div style={{ marginTop: 12 }}>
+              <span
                 style={{
-                  display: "inline-block",
-                  marginTop: 20,
-                  padding: "10px 16px",
-                  background: "#5C6BC0",
+                  padding: "6px 12px",
+                  background: badgeColor(monster.level_grade),
                   color: "white",
                   borderRadius: 8,
-                  textDecoration: "none",
+                  fontWeight: 600,
+                  fontSize: 14,
                 }}
               >
-                📘 스토리 보러가기 →
-              </a>
-            </>
-          ) : (
-            <>
-              <p>스토리 생성 전입니다.</p>
-
-              {/* 스토리 만들기 버튼 (스토리 없을 때만 표시) */}
-              <a
-                href={`/monster/${monster.id}/story`}
-                style={{
-                  display: "inline-block",
-                  marginTop: 20,
-                  padding: "12px 18px",
-                  background: "#3949AB",
-                  color: "white",
-                  borderRadius: 8,
-                  textDecoration: "none",
-                }}
-              >
-                📖 스토리 만들기 →
-              </a>
-            </>
+                현재 등급: {monster.level_grade}
+              </span>
+            </div>
           )}
         </div>
+
+        {/* 📝 특징 입력 */}
+        <div
+          style={{
+            background: "#E8EAF6",
+            padding: 20,
+            borderRadius: 16,
+          }}
+        >
+          <h2>📝 몬스터 특징(설명)</h2>
+
+          <textarea
+            placeholder="예: 얼음 숨결을 내뿜는다"
+            value={feature}
+            onChange={(e) => setFeature(e.target.value)}
+            rows={4}
+            style={{
+              width: "100%",
+              padding: 12,
+              borderRadius: 8,
+              border: "1px solid #ccc",
+              fontSize: 16,
+            }}
+          />
+        </div>
+
+        {/* 💾 저장 버튼 */}
+        <button
+          onClick={saveMonster}
+          style={{
+            padding: "14px 20px",
+            background: "#6A1B9A",
+            color: "white",
+            borderRadius: 8,
+            cursor: "pointer",
+            fontSize: 18,
+            border: "none",
+            marginTop: 10,
+          }}
+        >
+          💾 저장하기
+        </button>
 
       </div>
     </div>
